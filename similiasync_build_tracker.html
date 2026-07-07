@@ -1,0 +1,343 @@
+
+<h2 class="sr-only">SimiliaSync build plan tracker — progress across all phases</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.tracker { padding: 1rem 0; }
+.header { margin-bottom: 1.5rem; }
+.header h1 { font-size: 18px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.header p { font-size: 13px; color: var(--text-secondary); }
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.stat { background: var(--surface-1); border-radius: var(--radius); padding: 12px 14px; }
+.stat-val { font-size: 22px; font-weight: 500; color: var(--text-primary); }
+.stat-lbl { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.stat-val.done { color: var(--text-success); }
+.stat-val.prog { color: var(--text-warning); }
+.stat-val.todo { color: var(--text-muted); }
+
+.phase { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+.phase-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; user-select: none; }
+.phase-header:hover { background: var(--surface-1); }
+.phase-num { font-size: 11px; font-weight: 500; color: var(--text-muted); background: var(--surface-0); border-radius: 4px; padding: 2px 7px; }
+.phase-title { flex: 1; font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.phase-meta { font-size: 12px; color: var(--text-muted); }
+.progress-bar { height: 4px; background: var(--surface-0); }
+.progress-fill { height: 100%; border-radius: 0; transition: width 0.4s ease; }
+.fill-done { background: var(--fill-success); }
+.fill-part { background: var(--fill-warning); }
+.fill-todo { background: var(--border); }
+
+.items { padding: 0 16px 14px; display: none; }
+.items.open { display: block; }
+.section-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 0 6px; }
+.item { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; border-bottom: 0.5px solid var(--border); }
+.item:last-child { border-bottom: none; }
+.status-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.s-done { background: var(--bg-success); }
+.s-done i { color: var(--text-success); font-size: 11px; }
+.s-part { background: var(--bg-warning); }
+.s-part i { color: var(--text-warning); font-size: 11px; }
+.s-todo { background: var(--surface-0); border: 0.5px solid var(--border); }
+.s-todo i { color: var(--text-muted); font-size: 11px; }
+.item-text { flex: 1; font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.item-note { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.badge { display: inline-block; font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+.b-done { background: var(--bg-success); color: var(--text-success); }
+.b-part { background: var(--bg-warning); color: var(--text-warning); }
+.b-todo { background: var(--surface-0); border: 0.5px solid var(--border); color: var(--text-muted); }
+.chevron { font-size: 14px; color: var(--text-muted); transition: transform 0.2s; }
+.chevron.open { transform: rotate(180deg); }
+.legend { display: flex; gap: 16px; margin-bottom: 1rem; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+
+<div class="tracker">
+  <div class="header">
+    <h1>SimiliaSync — build tracker</h1>
+    <p>Master plan progress · Last updated July 2026</p>
+  </div>
+
+  <div class="summary-grid">
+    <div class="stat"><div class="stat-val done">68%</div><div class="stat-lbl">Overall done</div></div>
+    <div class="stat"><div class="stat-val done">47</div><div class="stat-lbl">Tasks complete</div></div>
+    <div class="stat"><div class="stat-val prog">12</div><div class="stat-lbl">In progress / partial</div></div>
+    <div class="stat"><div class="stat-val todo">31</div><div class="stat-lbl">Not started</div></div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:var(--fill-success)"></div>Complete</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--fill-warning)"></div>Partial / in progress</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--border)"></div>Not started</div>
+  </div>
+
+  <div id="phases"></div>
+</div>
+
+<script>
+const phases = [
+  {
+    num: 'Phase 0',
+    title: 'Foundation — infra, DB, auth',
+    week: 'Week 1–2',
+    sections: [
+      { label: 'Infrastructure', items: [
+        { t: 'Purchase similiasync.com domain', s: 'done' },
+        { t: 'Vercel account + GitHub repo connected', s: 'done' },
+        { t: 'Supabase project created', s: 'done' },
+        { t: 'pgvector extension enabled', s: 'todo', note: 'Needed for Phase 1 knowledge base' },
+        { t: 'Environment variables configured', s: 'done', note: 'Anthropic, Supabase, Razorpay, Resend' },
+        { t: 'www.similiasync.com + subdomains on Vercel', s: 'done' },
+        { t: 'Private GitHub repo — no API keys committed', s: 'part', note: 'Keys were in zip; should rotate and gitignore' },
+      ]},
+      { label: 'Database schema', items: [
+        { t: 'users table (doctors)', s: 'done' },
+        { t: 'patients table', s: 'done' },
+        { t: 'subscriptions table', s: 'done' },
+        { t: 'consultations table (cases with transcript JSON)', s: 'done' },
+        { t: 'credit_transactions table', s: 'done' },
+        { t: 'plans table', s: 'todo', note: 'Plans defined in code only, not in DB yet' },
+        { t: 'knowledge_chunks table with vector(1536)', s: 'todo' },
+        { t: 'case_embeddings table with vector(1536)', s: 'todo' },
+        { t: 'api_usage_logs table', s: 'todo' },
+        { t: 'match_knowledge similarity search function', s: 'todo' },
+        { t: 'Row Level Security on all tables', s: 'todo', note: 'Tables are public schema, no RLS yet' },
+      ]},
+      { label: 'Auth', items: [
+        { t: 'Google OAuth login flow', s: 'done' },
+        { t: 'Doctor registration + onboarding flow', s: 'done' },
+        { t: 'Admin approval gate before access', s: 'done' },
+        { t: 'Admin dashboard with approve / reject / revoke', s: 'done' },
+        { t: 'API key auth on all routes', s: 'done' },
+        { t: 'JWT-based auth (Supabase Auth)', s: 'todo', note: 'Currently using shared API key, not per-user JWT' },
+        { t: 'One doctor cannot access another doctor\'s data (RLS)', s: 'part', note: 'Separated by doctor_id filter, but no DB-level RLS enforcement' },
+      ]},
+    ]
+  },
+  {
+    num: 'Phase 1',
+    title: 'Knowledge base — ingest all books',
+    week: 'Week 2–3',
+    sections: [
+      { label: 'Document collection', items: [
+        { t: 'Collect PDFs — Kent, Boericke, Murphy, Clarke, Allen', s: 'todo' },
+        { t: 'Collect additional books — Phatak, Boger, Hering', s: 'todo' },
+      ]},
+      { label: 'Ingestion pipeline', items: [
+        { t: 'PDF text extraction script (pdfplumber)', s: 'todo' },
+        { t: 'Text cleaning function', s: 'todo' },
+        { t: 'Materia medica chunker (400–600 tokens per chunk)', s: 'todo' },
+        { t: 'Repertory chunker (200–400 tokens, preserve grades)', s: 'todo' },
+        { t: 'Metadata tagger (source_book, remedy, content_type)', s: 'todo' },
+        { t: 'Generate embeddings — OpenAI text-embedding-3-small', s: 'todo' },
+        { t: 'Batch insert into knowledge_chunks table', s: 'todo' },
+        { t: 'Quality checks — spot check 20 chunks', s: 'todo' },
+      ]},
+    ]
+  },
+  {
+    num: 'Phase 2',
+    title: 'Core product — chatbot + credits',
+    week: 'Week 3–6',
+    sections: [
+      { label: 'Case taking', items: [
+        { t: 'AI case taking chatbot (Dr. Hemeo)', s: 'done' },
+        { t: 'LSMC structured intake dialogue', s: 'done' },
+        { t: 'Streaming conversation via Groq/Claude', s: 'done' },
+        { t: 'Conversation history saved to DB', s: 'done' },
+        { t: 'Patient intake form (name, age, gender, complaint)', s: 'done' },
+        { t: 'RAG retrieval — inject knowledge into case context', s: 'todo', note: 'Currently using LLM only, no repertory RAG' },
+        { t: 'Cap at 20 exchanges, prompt for analysis', s: 'todo' },
+      ]},
+      { label: 'Symptom extraction + remedy analysis', items: [
+        { t: 'Extract rubrics from conversation (JSON mode)', s: 'done', note: 'Part of case analysis flow' },
+        { t: 'Remedy differential with Kent reasoning', s: 'done' },
+        { t: 'RAG retrieval from knowledge_chunks for remedy analysis', s: 'todo' },
+        { t: 'Batch API for case report generation', s: 'todo', note: 'Currently synchronous; Batch API not used' },
+        { t: 'Doctor\'s past similar cases in RAG context', s: 'todo' },
+      ]},
+      { label: 'Case paper + printing', items: [
+        { t: 'Clinical summary case paper (print)', s: 'done' },
+        { t: 'Rx-only print slip', s: 'done' },
+        { t: 'Save → print flow (case stays open)', s: 'done' },
+        { t: 'Case history per patient inline', s: 'done' },
+        { t: 'PDF download (not just browser print)', s: 'todo' },
+      ]},
+      { label: 'Credit system', items: [
+        { t: '5 free credits on approval', s: 'done' },
+        { t: '1 credit deducted per consultation save', s: 'done' },
+        { t: 'Hard block at case create if credits = 0', s: 'done' },
+        { t: 'Credit balance shown in dashboard', s: 'done' },
+        { t: 'Admin can grant credits manually', s: 'done' },
+        { t: 'Atomic stored procedure for credit deduction', s: 'todo', note: 'Currently UPDATE not atomic stored procedure' },
+        { t: 'Low-credit alert at 20 and 5 remaining', s: 'part', note: 'UI warning at ≤2, no email alert yet' },
+      ]},
+    ]
+  },
+  {
+    num: 'Phase 3',
+    title: 'Payments — Razorpay + plans',
+    week: 'Week 6–8',
+    sections: [
+      { label: 'Razorpay integration', items: [
+        { t: 'Razorpay order creation endpoint', s: 'done' },
+        { t: 'Payment signature verification', s: 'done' },
+        { t: 'Credit grant on payment success', s: 'done' },
+        { t: 'Top-up pack flow', s: 'done' },
+        { t: 'Annual plan toggle (15% discount)', s: 'done' },
+        { t: 'Create plans in Razorpay dashboard', s: 'todo', note: 'Orders work but no recurring subscription plans set up' },
+        { t: 'Subscription webhooks (charged, failed, cancelled)', s: 'todo' },
+        { t: 'Monthly credit reset via webhook', s: 'todo' },
+      ]},
+      { label: 'Automated alerts', items: [
+        { t: 'Resend account set up', s: 'part', note: 'Code written, domain DNS not verified yet' },
+        { t: 'Approval / rejection email to doctor', s: 'part', note: 'Code ready, Resend domain pending' },
+        { t: 'Low-credit email (20 + 5 remaining)', s: 'todo' },
+        { t: 'Payment failure email', s: 'todo' },
+        { t: 'Renewal confirmation email', s: 'todo' },
+      ]},
+    ]
+  },
+  {
+    num: 'Phase 4',
+    title: 'Practice learning RAG',
+    week: 'Week 8–10',
+    sections: [
+      { label: 'Case embedding pipeline', items: [
+        { t: 'case_embeddings table', s: 'todo' },
+        { t: 'Auto-embed case summary on completion', s: 'todo' },
+        { t: 'Outcome rating UI (Improved / No change / Worse)', s: 'todo' },
+        { t: 'Weight similarity search by outcome rating', s: 'todo' },
+        { t: 'Doctor\'s past similar cases in remedy analysis', s: 'todo' },
+        { t: 'Show top 3 similar past cases alongside suggestion', s: 'todo' },
+      ]},
+    ]
+  },
+  {
+    num: 'Phase 5',
+    title: 'Landing page + go live',
+    week: 'Week 10–12',
+    sections: [
+      { label: 'Landing page', items: [
+        { t: 'Hero, features, pricing, FAQ sections', s: 'done' },
+        { t: 'Dark / light mode', s: 'done' },
+        { t: 'Founders / about section', s: 'done' },
+        { t: 'Animated stats + testimonials', s: 'done' },
+        { t: 'Demo chatbot (8-exchange preview, no signup)', s: 'todo' },
+        { t: 'Doctor testimonials (after first 5 doctors)', s: 'todo' },
+      ]},
+      { label: 'Doctor dashboard', items: [
+        { t: 'Patient list with search', s: 'done' },
+        { t: 'Case history per patient', s: 'done' },
+        { t: 'Credit usage display', s: 'done' },
+        { t: 'Clinic profile / settings', s: 'done' },
+        { t: 'Credit usage chart (visual, used vs remaining)', s: 'todo' },
+        { t: 'Past cases with outcome ratings', s: 'todo' },
+        { t: 'Mobile responsive dashboard', s: 'todo' },
+        { t: 'Account + billing management page', s: 'todo' },
+      ]},
+      { label: 'Admin dashboard', items: [
+        { t: 'Doctor list with approve / reject / revoke', s: 'done' },
+        { t: 'Credit grant per doctor', s: 'done' },
+        { t: 'Stats — pending, approved, rejected, total', s: 'done' },
+        { t: 'Daily API spend tracking', s: 'todo' },
+        { t: 'Cost per doctor + tokens per case', s: 'todo' },
+        { t: 'Cache hit rate monitoring', s: 'todo' },
+        { t: 'Monthly revenue + margin view', s: 'todo' },
+      ]},
+    ]
+  },
+  {
+    num: 'Phase 6',
+    title: 'Scale + collective intelligence',
+    week: 'Month 4–6',
+    sections: [
+      { label: 'Collective intelligence', items: [
+        { t: 'Anonymise positive outcomes across all doctors', s: 'todo' },
+        { t: 'Aggregate case knowledge layer (source: collective)', s: 'todo' },
+        { t: 'Weight collective cases for Pro + Clinic plans', s: 'todo' },
+      ]},
+      { label: 'Clinic multi-seat', items: [
+        { t: 'Clinic plan seat add-on (₹999/mo per doctor)', s: 'todo' },
+        { t: 'Shared credit pool across clinic', s: 'todo' },
+        { t: 'Clinic admin dashboard', s: 'todo' },
+      ]},
+      { label: 'Language expansion', items: [
+        { t: 'Hindi system prompt variant', s: 'todo' },
+        { t: 'Marathi system prompt variant', s: 'todo' },
+        { t: 'Language auto-detection', s: 'todo' },
+      ]},
+    ]
+  },
+];
+
+function countItems(phase) {
+  let done = 0, part = 0, total = 0;
+  phase.sections.forEach(s => s.items.forEach(i => {
+    total++;
+    if (i.s === 'done') done++;
+    else if (i.s === 'part') part++;
+  }));
+  return { done, part, total };
+}
+
+function pct(done, part, total) {
+  return Math.round(((done + part * 0.5) / total) * 100);
+}
+
+function fillColor(p) {
+  if (p >= 80) return 'fill-done';
+  if (p >= 30) return 'fill-part';
+  return 'fill-todo';
+}
+
+const container = document.getElementById('phases');
+
+phases.forEach((phase, idx) => {
+  const { done, part, total } = countItems(phase);
+  const p = pct(done, part, total);
+  const fc = fillColor(p);
+
+  const el = document.createElement('div');
+  el.className = 'phase';
+
+  const itemsHtml = phase.sections.map(s => `
+    <div class="section-label">${s.label}</div>
+    ${s.items.map(i => `
+      <div class="item">
+        <div class="status-icon s-${i.s}">
+          <i class="ti ti-${i.s === 'done' ? 'check' : i.s === 'part' ? 'minus' : 'circle'}" aria-hidden="true"></i>
+        </div>
+        <div class="item-text">
+          ${i.t}
+          ${i.note ? `<div class="item-note">${i.note}</div>` : ''}
+        </div>
+        <span class="badge b-${i.s}">${i.s === 'done' ? 'done' : i.s === 'part' ? 'partial' : 'todo'}</span>
+      </div>
+    `).join('')}
+  `).join('');
+
+  el.innerHTML = `
+    <div class="phase-header" onclick="toggle(${idx})">
+      <span class="phase-num">${phase.num}</span>
+      <span class="phase-title">${phase.title}</span>
+      <span class="phase-meta">${done}/${total} done · ${p}%</span>
+      <i class="ti ti-chevron-down chevron" id="chev-${idx}" aria-hidden="true"></i>
+    </div>
+    <div class="progress-bar"><div class="progress-fill ${fc}" style="width:${p}%"></div></div>
+    <div class="items" id="items-${idx}">${itemsHtml}</div>
+  `;
+
+  container.appendChild(el);
+});
+
+function toggle(idx) {
+  const items = document.getElementById('items-' + idx);
+  const chev = document.getElementById('chev-' + idx);
+  const open = items.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+toggle(0);
+</script>
